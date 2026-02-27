@@ -11,6 +11,7 @@ export type ReceiptListItem = {
   transactionCurrency?: string;
   transactionOperationNumber?: string;
   transactionDateTimeUtc?: string;
+  blobUrl?: string;
 };
 
 export async function fetchReceipts(customerId?: string): Promise<ReceiptListItem[]> {
@@ -20,7 +21,9 @@ export async function fetchReceipts(customerId?: string): Promise<ReceiptListIte
   if (!baseUrl) throw new Error('Missing API_BASE_URL');
 
   const template = process.env.CLERK_JWT_TEMPLATE;
-  const token = await (await import('@clerk/nextjs/server')).auth().getToken(template ? { template } : undefined);
+  const { auth } = await import('@clerk/nextjs/server');
+  const session = await auth();
+  const token = await session.getToken(template ? { template } : undefined);
   if (!token) throw new Error('Missing auth token');
 
   const url = new URL('/api/admin/receipts', baseUrl);
@@ -36,7 +39,9 @@ export async function fetchReceipts(customerId?: string): Promise<ReceiptListIte
   });
 
   if (!res.ok) {
-    throw new Error(await res.text());
+    const errorText = await res.text();
+    console.error('API error:', res.status, errorText);
+    throw new Error(errorText || `API error: ${res.status}`);
   }
 
   return (await res.json()) as ReceiptListItem[];
